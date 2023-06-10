@@ -15,6 +15,9 @@ dbConnect();
 
 app.use(express.json());
 
+app.get((req, res) => {
+    res.send("Hello, the server is functioning!");
+})
 
 // Curb Cores Error by adding a header here
 app.use((req, res, next) => {
