@@ -36,6 +36,7 @@ app.use((req, res, next) => {
 //Create register endpoint
 
 app.post("/register", (request, response) => {
+    console.log("HELLLLLO"); 
     //hash the password received from request body 10 times or 10 salt rounds
     bcrypt.hash(request.body.password, 10)
         .then((hashedPassword) => {
@@ -45,12 +46,14 @@ app.post("/register", (request, response) => {
                 password: hashedPassword,
             });
             user.save().then((result) => {
+                console.log("successfull"); 
                 response.status(201).send({
                     message: "User Created Successfully", 
                     result, 
                 })
             })
             .catch((error) => {
+                console.log("error creating user"); 
                 response.status(500).send({
                     message: "Error creating user", 
                     error,
@@ -59,6 +62,7 @@ app.post("/register", (request, response) => {
 
         })
         .catch((e) => {
+            console.log("password was not hashed");
             response.status(500).send({
                 message: "Password was not hashed successfully", 
                 e
