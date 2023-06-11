@@ -35,7 +35,7 @@ app.use((req, res, next) => {
 
 //Create register endpoint
 
-app.post("/register", (request, reponse) => {
+app.post("/register", (request, response) => {
     //hash the password received from request body 10 times or 10 salt rounds
     bcrypt.hash(request.body.password, 10)
         .then((hashedPassword) => {
@@ -59,7 +59,7 @@ app.post("/register", (request, reponse) => {
 
         })
         .catch((e) => {
-            reponse.status(500).send({
+            response.status(500).send({
                 message: "Password was not hashed successfully", 
                 e
             });
