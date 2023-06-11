@@ -45,7 +45,7 @@ app.post("/register", (request, reponse) => {
                 password: hashedPassword,
             });
             user.save().then((result) => {
-                reponse.status(201).send({
+                response.status(201).send({
                     message: "User Created Successfully", 
                     result, 
                 })
