@@ -36,10 +36,12 @@ app.use((req, res, next) => {
 //Create register endpoint
 
 app.post("/register", (request, response) => {
-    console.log("HELLLLLO"); 
+    console.log(request.body.password); 
     //hash the password received from request body 10 times or 10 salt rounds
     bcrypt.hash(request.body.password, 10)
         .then((hashedPassword) => {
+            console.log(request.body.fullname);
+            console.log(request.body.email); 
             const user = new User({ 
                 fullname: request.body.fullname,
                 email: request.body.email,
