@@ -17,6 +17,7 @@ const port = normalizePort(process.env.PORT || '7459');
 const second_port = "4000"; 
 app.set('port', port);
 
+console.log(second_port); 
 
 const io = require('socket.io')(second_port, {
   cors: {
