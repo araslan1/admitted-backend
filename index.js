@@ -1,6 +1,7 @@
 const http = require('http');
 const app = require('./app');
-require('dotenv').config(); 
+const { socketServer } = require('./socketServer');
+
 
 const normalizePort = val => {
   const port = parseInt(val, 10);
@@ -14,21 +15,9 @@ const normalizePort = val => {
   return false;
 };
 const port = normalizePort(process.env.PORT || '7459');
-const second_port = "4000"; 
 app.set('port', port);
 
-console.log(second_port); 
 
-const io = require('socket.io')(second_port, {
-  cors: {
-    origin: process.env.CLIENT_URL,
-    methos: ['GET', 'POST']
-  },
-});
-
-io.on("connection", socket => {
-  console.log("connected"); 
-})
 
 
 const errorHandler = error => {
@@ -52,6 +41,7 @@ const errorHandler = error => {
 };
 
 const server = http.createServer(app);
+socketServer(server); 
 
 server.on('error', errorHandler);
 server.on('listening', () => {

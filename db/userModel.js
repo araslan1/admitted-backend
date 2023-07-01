@@ -17,6 +17,16 @@ const UserSchema = new mongoose.Schema({
         required: [true, "Please provide a password"],
         unique: false,
     }, 
+    dashboardId: {
+        type: String,
+        required: false,
+        unique: true
+    },
+    documentIds: {
+        type: Array,
+        required: false,
+        unique: false, 
+    }
 }); 
 
 // create a user table or collection if there no table with that name already
