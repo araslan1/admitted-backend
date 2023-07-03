@@ -1,14 +1,11 @@
 const express = require('express'); 
 const app = express(); 
-const cookieparser = require('cookie-parser')
 const bcrypt = require('bcrypt'); 
 const jwt = require("jsonwebtoken"); 
 const auth = require("./auth");
 require('dotenv').config(); 
 const Document = require('./db/Document')
 const cors = require('cors')
-const { v4: uuidV4 } = require('uuid');
-
 
 
 //database connection
@@ -20,7 +17,6 @@ dbConnect();
 
 
 app.use(express.json());
-app.use(cookieparser)
 
 //front end connection
 app.use(
@@ -36,19 +32,13 @@ const stripe = require('stripe')(process.env.STRIPE_PRIVATE_KEY)
 
 // payment setup
 const storeItems = new Map([
-    [1, { priceInCents: 5000, name: "College 1"}],
-    [2, { priceInCents: 5000, name: "College 2"}],
-    [3, { priceInCents: 5000, name: "College 3"}],
-    [4, { priceInCents: 5000, name: "College 4"}],
-    [5, { priceInCents: 5000, name: "College 5"}],
-    [6, { priceInCents: 5000, name: "College 6"}],
-    [7, {priceInCents: 2500, name: "Resume Review"}], 
-    [8, {priceInCents: 2500, name: "Activities/Honors Review"}],
-    [9, {priceInCents: 5000, name: "Practice Interview"}]
+    [1, { priceInCents: 5000, name: "College-Specific Review"}],
+    [2, {priceInCents: 2500, name: "Resume Review"}], 
+    [3, {priceInCents: 2500, name: "Activities/Honors Review"}],
+    [4, {priceInCents: 5000, name: "Practice Interiew"}]
 ])
 
 app.post('/create-checkout-session', async (req, res) => {
-    console.log("entered")
     try {
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
@@ -66,7 +56,7 @@ app.post('/create-checkout-session', async (req, res) => {
                     quantity: item.quantity
                 }
             }),
-            success_url: "http://localhost:7459/order/success?session_id={CHECKOUT_SESSION_ID}",
+            success_url: `${process.env.CLIENT_URL}/success.html`,
             cancel_url: `${process.env.CLIENT_URL}/cancel.html`
         })
         res.json({ url: session.url })
@@ -80,46 +70,6 @@ app.get("/", (req, res) => {
     res.send("Hello, the server is functioning!");
 })
 
-
-app.get('/order/success', async (req, res) => {
-    console.log("entered")
-    try {
-        const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
-        if (!session){
-            throw new Error('Invalid session ID');
-        }
-        
-        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
-            limit: 100, // Adjust the limit as needed
-          });
-        
-        console.log(lineItems.data)
-
-        servicesRequested = []
-        new_document_Ids = []
-
-        for (const item of lineItems.data){
-            //you need to only add documents for essay reviews specifically
-            servicesRequest.append(item.description)
-            new_document_Ids.append(uuidV4())
-        }
-       
-        const email = session.customer_details.email;
-        User.findOne({email: email})
-            .then((user) => {
-                user.servicesRequested = servicesRequested
-                user.documentIds = new_document_Ids
-                console.log("user services updated!")
-            })
-            .catch(() => {
-                console.log("no user found")
-            })
-
-        res.send(`<html><body><h1>Thanks for your order, ${email}!</h1></body></html>`);
-      } catch (error) {
-        res.status(400).send('Error: ' + error.message);
-      }
-});
 // Curb Cores Error by adding a header here
 // app.use((req, res, next) => {
 //     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -202,14 +152,12 @@ app.post("/login", (request, response) => {
                             userId: user._id,
                             userEmail: user.email, 
                         },
-                        process.env.LOGIN_KEY,
+                        "RANDOM-TOKEN",
                         { expiresIn: "24h" }
                     );
 
-                    res.cookie('token', token, { httpOnly: true});
-                    
                     //send success message if login was successful
-                    response.json({
+                    response.status(200).send({
                         message: "Login Successful",
                         email: user.email,
                         token,
@@ -277,8 +225,6 @@ app.post("/comments", (request, response) => {
             });
         })
 })
-
-app.get("/user")
 
 // free endpoint
 app.get("/free-endpoint", (request, response) => {
