@@ -26,6 +26,11 @@ const UserSchema = new mongoose.Schema({
         type: Array,
         required: false,
         unique: false, 
+    },
+    servicesRequested: {
+        type: Array,
+        required: false,
+        unique: false,
     }
 }); 
 
