@@ -6,7 +6,7 @@ const auth = require("./auth");
 require('dotenv').config(); 
 const Document = require('./db/Document')
 const cors = require('cors')
-
+const { v4: uuidV4 } = require('uuid'); 
 
 //database connection
 const dbConnect = require('./db/dbConnect'); 
@@ -18,25 +18,33 @@ dbConnect();
 
 app.use(express.json());
 
-//front end connection
-app.use(
-    cors({
-        origin: process.env.CLIENT_URL,
-    })
-)
 
-  
 
 //stripe connection
 const stripe = require('stripe')(process.env.STRIPE_PRIVATE_KEY)
 
+//front end connection
+app.use(
+    cors({
+        origin: ["http://localhost:3000", "https://checkout.stripe.com"],
+    })
+)
+
 // payment setup
 const storeItems = new Map([
-    [1, { priceInCents: 5000, name: "College-Specific Review"}],
-    [2, {priceInCents: 2500, name: "Resume Review"}], 
-    [3, {priceInCents: 2500, name: "Activities/Honors Review"}],
-    [4, {priceInCents: 5000, name: "Practice Interiew"}]
+    [1, { priceInCents: 5000, name: "College 1"}],
+    [2, { priceInCents: 5000, name: "College 2"}],
+    [3, { priceInCents: 5000, name: "College 3"}],
+    [4, { priceInCents: 5000, name: "College 4"}],
+    [5, { priceInCents: 5000, name: "College 5"}],
+    [6, { priceInCents: 5000, name: "College 6"}],
+    [7, {priceInCents: 2500, name: "Resume Review"}], 
+    [8, {priceInCents: 2500, name: "Activities/Honors Review"}],
+    [9, {priceInCents: 5000, name: "Practice Interview"}]
 ])
+
+app.options('https://stripe.com/cookie-settings/enforcement-mode', cors());
+
 
 app.post('/create-checkout-session', async (req, res) => {
     try {
@@ -56,13 +64,66 @@ app.post('/create-checkout-session', async (req, res) => {
                     quantity: item.quantity
                 }
             }),
-            success_url: `${process.env.CLIENT_URL}/success.html`,
-            cancel_url: `${process.env.CLIENT_URL}/cancel.html`
+            success_url: "http://localhost:7470/order/success?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url: `${process.env.CLIENT_URL}/`
         })
         res.json({ url: session.url })
     } catch (e) {
         res.status(500).json({ error: e.message })
     }
+})
+
+app.get('/order/success', async (req, res) => {
+    try{
+        const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
+        if (!session){
+            throw new Error('Invalild session ID');
+        }
+        console.log('session found');
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+            limit: 100,
+        });
+        console.log('lineitems found')
+        servicesRequested = []
+        new_document_Ids = []
+
+        for (const item of lineItems.data){
+            servicesRequested = [...servicesRequested, item.description];
+            new_document_Ids = [...new_document_Ids, uuidV4()]; 
+        }
+
+        const email = session.customer_details.email;
+        User.findOne({email: email})
+            .then((user) => {
+                if (user.servicesRequested){
+                    user.servicesRequested = [...user.servicesRequested, ...servicesRequested];
+                }else{
+                    user.servicesRequested = servicesRequested;
+                }
+                if (user.documentIds){
+                    user.documentIds = [...user.documentIds, ...new_document_Ids];
+                }else{
+                    user.documentIds = new_document_Ids
+                }
+                user.save().then(() => {
+                    console.log("user services updated!");
+                })
+                res.redirect(`${process.env.CLIENT_URL}/dashboard/${user.dashboardId}`);
+                return; 
+            })
+            .catch((error) => {
+                console.log("Error processing order:", error);
+            })
+
+        // res.send(`<html><body><h1>Thanks for your order, ${email}!</h1></body></html>`);
+    }catch (error) {
+        console.log("Error processing order:", error);
+        res.redirect('/payment_incomplete');
+    }
+})
+
+app.get('/payment_incomplete', (req, res) => {
+    res.send("Payment could not be completed")
 })
 
 
@@ -71,18 +132,7 @@ app.get("/", (req, res) => {
 })
 
 // Curb Cores Error by adding a header here
-// app.use((req, res, next) => {
-//     res.setHeader("Access-Control-Allow-Origin", "*");
-//     res.setHeader(
-//       "Access-Control-Allow-Headers",
-//       "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization"
-//     );
-//     res.setHeader(
-//       "Access-Control-Allow-Methods",
-//       "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-//     );
-//     next();
-//   });
+
 
 //Create register endpoint
 
@@ -97,6 +147,7 @@ app.post("/register", (request, response) => {
                 fullname: request.body.fullname,
                 email: request.body.email,
                 password: hashedPassword,
+                dashboardId: request.body.dashboardId,
             });
             user.save().then((result) => {
                 console.log("successfull"); 
@@ -152,7 +203,7 @@ app.post("/login", (request, response) => {
                             userId: user._id,
                             userEmail: user.email, 
                         },
-                        "RANDOM-TOKEN",
+                        process.env.ACCESS_TOKEN_SECRET,
                         { expiresIn: "24h" }
                     );
 
@@ -160,6 +211,7 @@ app.post("/login", (request, response) => {
                     response.status(200).send({
                         message: "Login Successful",
                         email: user.email,
+                        dashboardId: user.dashboardId, 
                         token,
                     })
                 });
@@ -231,9 +283,37 @@ app.get("/free-endpoint", (request, response) => {
     response.json({ message: "You are free to access me anytime" });
   });
   
-  // authentication endpoint
+
 app.get("/auth-endpoint", auth, (request, response) => {
     response.json({ message: "You are authorized to access me" });
+})  
+  // authentication endpoint
+app.get("/auth-dashboard/:dashboardId", auth, (request, response) => {
+    if (request.user){
+        console.log(request.user);
+    }
+    User.findById(request.user.userId)
+        .then((user) => {
+            response.json({
+                fullname: user.fullname, 
+                documentIds: user.documentIds, 
+                servicesRequested: user.servicesRequested,
+            })
+        })
+        .catch((error) => {
+            console.log('Error finding user:', error); 
+        })
+    
+    // response.header('Access-Control-Allow-Origin', 'http://localhost:3000, https://checkout.stripe.com'); // Replace with your allowed origin
+    // response.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+    // response.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+});
+
+app.get("/auth-editingtool/:documentId", auth, (request, response) => {
+    // response.json("You are authorized to access editing tool"); 
+    // response.header('Access-Control-Allow-Origin', 'http://localhost:3000, https://checkout.stripe.com'); // Replace with your allowed origin
+    // response.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+    // response.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 });
 
 module.exports = app; 

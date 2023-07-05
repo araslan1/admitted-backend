@@ -10,26 +10,29 @@ const socketServer = (server) => {
     });
     //set middleware here
     const defaultValue = ""; 
+    try{
+        io.on("connection", async (socket) => {
+            console.log("socket connected"); 
 
-    io.on("connection", async (socket) => {
-        console.log("socket connected"); 
+            socket.on('get-document', async documentId => {
+                const document = await findOrCreateDocument(documentId); 
+                socket.join(documentId); 
+                socket.emit('load-document', document.data); 
 
-        socket.on('get-document', async documentId => {
-            const document = await findOrCreateDocument(documentId); 
-            socket.join(documentId); 
-            socket.emit('load-document', document.data); 
+                socket.on('send-changes', delta => {
+                    socket.broadcast.to(documentId).emit("receive-changes", delta); 
+                })
 
-            socket.on('send-changes', delta => {
-                socket.broadcast.to(documentId).emit("receive-changes", delta); 
+                socket.on("save-document", async data => {
+                    await Document.findByIdAndUpdate(documentId, { data } )
+                })
+
+                // I THINK I WANT TO SAVE ONE EXCLUSIVELY A SAVE BUTTON OR A SUBMIT COMMENTS BUTTON
             })
-
-            socket.on("save-document", async data => {
-                await Document.findByIdAndUpdate(documentId, { data } )
-            })
-
-            // I THINK I WANT TO SAVE ONE EXCLUSIVELY A SAVE BUTTON OR A SUBMIT COMMENTS BUTTON
         })
-    })
+    }catch (error) {
+        console.log("Error connecting to socket:", error);
+    }
 
       async function findOrCreateDocument(id) {
         if (id == null) return; 

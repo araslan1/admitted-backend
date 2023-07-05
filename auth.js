@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken');
+const User = require('./db/userModel');
+require('dotenv').config()
 
 
 
@@ -9,17 +11,31 @@ module.exports = async (request, response, next) => {
         const token = await request.headers.authorization.split(" ")[1]; 
 
             //check if token matches supposed origin
-            const decodedToken = await jwt.verify(token, "RANDOM-TOKEN"); 
+            const decodedToken = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET); 
 
             // retreive the user details of the logged in user
             const user = await decodedToken; 
 
-            // pass the user down to the endpoints here
-            request.user = user; 
+            User.findById(user.userId)
+                .then((user) => {
+                    if (request.params.dashboardId){
+                        if (user.dashboardId !== request.params.dashboardId) {
+                            response.status(401).json({
+                                error: new Error("Invalid Request!"), 
+                            })
+                        }
+                    }
+                })
+                .catch((error) => {
 
-            //pass down functionality to next endpoint
+                })
+                
+            //check if this is the user's correct dashboard
+            request.user = user; 
+                    //pass down functionality to next endpoint
             next(); 
 
+    
     } catch (error) {
         response.status(401).json({
             error: new Error("Invalid Request!"), 
