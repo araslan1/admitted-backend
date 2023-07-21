@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const UserSchema = new mongoose.Schema({
+const ReviewerSchema = new mongoose.Schema({
     fullname: {
         type: String, 
         required: [true, "Please provide your full name"], 
@@ -27,17 +27,7 @@ const UserSchema = new mongoose.Schema({
         required: false,
         unique: false, 
     },
-    servicesRequested: {
-        type: Array,
-        required: false, 
-        unique: false, 
-    },
-    isReviewer: {
-        type: Boolean, 
-        required: false, 
-        default: false, 
-    }
 }); 
 
 // create a user table or collection if there no table with that name already
-module.exports = mongoose.model.Users || mongoose.model("Users", UserSchema); 
+module.exports = mongoose.model.Reviewers || mongoose.model("Reviewers", ReviewerSchema); 

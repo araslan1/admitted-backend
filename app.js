@@ -1,5 +1,7 @@
 const express = require('express'); 
 const app = express(); 
+const Reviewer = require('./db/Reviewer');
+const nodeMailer = require('nodemailer');
 const bcrypt = require('bcrypt'); 
 const jwt = require("jsonwebtoken"); 
 const auth = require("./auth");
@@ -7,10 +9,11 @@ require('dotenv').config();
 const Document = require('./db/Document')
 const cors = require('cors')
 const { v4: uuidV4 } = require('uuid'); 
-
+const auth_editingtool = require('./auth-editingtool'); 
 //database connection
 const dbConnect = require('./db/dbConnect'); 
 const User = require('./db/userModel');
+const test_authorize = require('./test-authorize');
 
 
 dbConnect(); 
@@ -30,6 +33,11 @@ app.use(
     })
 )
 
+app.use((req, res, next) => {
+    res.setHeader('Content-Security-Policy', "default-src 'self' https://checkout.stripe.com'");
+    next();
+  });
+
 // payment setup
 const storeItems = new Map([
     [1, { priceInCents: 5000, name: "College 1"}],
@@ -43,7 +51,7 @@ const storeItems = new Map([
     [9, {priceInCents: 5000, name: "Practice Interview"}]
 ])
 
-app.options('https://stripe.com/cookie-settings/enforcement-mode', cors());
+// app.options('https://stripe.com/cookie-settings/enforcement-mode', cors());
 
 
 app.post('/create-checkout-session', async (req, res) => {
@@ -232,10 +240,10 @@ app.post("/login", (request, response) => {
          });
 });
 
-app.get("/comments/:id", (request, response) => {
+app.get("/comments/:id", async (request, response) => {
     const id = request.params.id;
 
-    Document.findById(id)
+    await Document.findById(id)
         .then((document) => {
             response.json(document.comments);
             console.log("successfuly grabbed comments")
@@ -284,14 +292,11 @@ app.get("/free-endpoint", (request, response) => {
   });
   
 
-app.get("/auth-endpoint", auth, (request, response) => {
+app.get("/auth-endpoint", test_authorize, (request, response) => {
     response.json({ message: "You are authorized to access me" });
 })  
   // authentication endpoint
 app.get("/auth-dashboard/:dashboardId", auth, (request, response) => {
-    if (request.user){
-        console.log(request.user);
-    }
     User.findById(request.user.userId)
         .then((user) => {
             response.json({
@@ -309,11 +314,127 @@ app.get("/auth-dashboard/:dashboardId", auth, (request, response) => {
     // response.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 });
 
-app.get("/auth-editingtool/:documentId", auth, (request, response) => {
-    // response.json("You are authorized to access editing tool"); 
+app.get("/auth-editingtool/:documentId", auth_editingtool, (request, response) => {
+    console.log(request.id); 
+    response.json({
+        isReviewer: request.isReviewer,
+        userHasSubmitted: request.userHasSubmitted,
+        essaysReviewed: request.essaysReviewed,
+        message: "You are authorized to access this document"
+    }); 
     // response.header('Access-Control-Allow-Origin', 'http://localhost:3000, https://checkout.stripe.com'); // Replace with your allowed origin
     // response.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
     // response.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 });
+
+app.post("/editingtool/:documentId", async (request, response) => {
+    await Document.findById(request.params.documentId)
+        .then((document) => {
+            if (request.body.userHasSubmitted){
+                document.userHasSubmitted = request.body.userHasSubmitted;
+            }
+            if (request.body.essaysReviewed){
+                document.essaysReviewed = request.body.essaysReviewed;
+            }
+            if (request.body._id){
+                document.reviewerId = request.body._id; 
+            }
+            document.save().then((result) => {
+                console.log("updated user has submitted / essays reviewed state"); 
+                response.status(201).send({
+                    message: "Comments updated successfully", 
+                    result, 
+                })
+            })
+            .catch((error) => {
+                console.log("error updating document states"); 
+                response.status(500).send({
+                    message: "An error occurred while updating document" , 
+                    error,
+                })
+            })
+        })
+        .catch((error) => {
+            response.send("Error: " + error);
+        })  
+})
+
+app.get("/dashboard", auth, (request, response) => {
+        response.json({
+            dashboardId: request.dashboardId
+        })
+})
+
+
+let htmlTemplate = ``;
+
+const makeContent = (newBlurb) => {
+    htmlTemplate = `
+    <html>
+    <body style='background-color: #F8F8FA;'>
+    <table style='margin: 0px auto; width: 640px; background-color: white; border: none; border-collapse: collapse;'>
+    <thead>
+        <tr height='50px'></tr>
+        <tr style='text-align: center;'>
+            <img src='cid:uniqueEmbed@admitted.com' alt="..." style='height: 75px;' />
+        </tr>
+    </thead>
+    <tbody style='margin: 0; width: 100%;'>
+        <tr height='30px'></tr>
+        <tr style='text-align: center;'>
+            <td style='padding: 0 45px;'>${newBlurb}</td>
+        </tr>
+        <tr height='30px'></tr>
+        <tr height='50px' style='text-align: center;'>
+            <td><a href='' style='color: black; background: none; text-decoration: none; background-color: #fc8eac; border: 1px solid black; border-radius: 24px; padding: 8px 16px; cursor: pointer;'>Go to Admitted</a></td>
+        </tr>
+        <tr height='50px'></tr>
+        <tr height='50px' style='background-color: #f6f6f6; width: 100%;'>
+            <td><hr style='width: 80%; border: none; border-top: 1px solid #dfdfdf;' /></td>
+        </tr>
+        <tr height='60px' style='background-color: #f6f6f6; text-align: center;'>
+            <td style='padding: 0 45px; color: #838383; font-size: 12px; line-height: 18px;'>You are receiving this email because you are registered with ADMITTED. To no longer recieve email notifications, unsubscibe in your account's settings.</td>
+        </tr>
+    </tbody>
+</table>
+    </body>
+    </html>
+    `
+}
+
+app.post('/send-email', async (req, res) => {
+    const emailData = req.body;
+    makeContent(emailData.content)
+
+    const transporter = nodeMailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+        },
+        secure: true
+    })
+
+    try {
+        const info  = await transporter.sendMail({
+            from: 'alastairdeng@gmail.com',
+            to: emailData.recipient,
+            subject: emailData.subject,
+            html: htmlTemplate,
+            attachments: [{
+                filename: './logo-white.jpeg',
+                path: './logo-white.jpeg',
+                cid: 'uniqueEmbed@admitted.com'
+            }]
+        })
+
+        console.log('Email sent: ', info.messageId)
+        res.sendStatus(200)
+    } catch (error) {
+        console.error('Error sending email: ', error)
+        res.sendStatus(500);
+    }
+})
+
 
 module.exports = app; 

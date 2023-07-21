@@ -14,9 +14,26 @@ const Document = new Schema({
         required: false,
         unique: false, 
     },
-    completed: {
+    reviewerMatched: {
+        type: Boolean,
+        default: false, 
+    },
+    reviewerId: {
+        type: String,
+        required: false, 
+        unique: true, 
+    },
+    userHasSubmitted: {
         type: Boolean,
         default: false,
+    },
+    essaysReviewed: {
+        type: Boolean,
+        default: false,
+    },
+    dueBy: {
+        type: String, 
+        default: "undecided",
     }
 })
 
