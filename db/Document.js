@@ -14,27 +14,34 @@ const Document = new Schema({
         required: false,
         unique: false, 
     },
-    reviewerMatched: {
-        type: Boolean,
-        default: false, 
-    },
-    reviewerId: {
-        type: String,
-        required: false, 
-        unique: true, 
+    whichReviewerMatched: {
+        type: String, 
+        unique: false,
+        default: "not matched", 
     },
     userHasSubmitted: {
         type: Boolean,
         default: false,
+        unique: false,
+    },
+    submittedData: {
+        type: Date, 
+        unique: false,
+    },
+    essayMatched: {
+        type: Boolean,
+        default: false, 
+        unique: false,
     },
     essaysReviewed: {
         type: Boolean,
         default: false,
+        unique: false,
     },
     dueBy: {
-        type: String, 
-        default: "undecided",
-    }
+        type: Date, 
+        unique: false,
+    },
 })
 
 module.exports = model.Document || model("Document", Document);

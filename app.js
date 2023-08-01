@@ -1,6 +1,5 @@
 const express = require('express'); 
 const app = express(); 
-const Reviewer = require('./db/Reviewer');
 const nodeMailer = require('nodemailer');
 const bcrypt = require('bcrypt'); 
 const jwt = require("jsonwebtoken"); 
@@ -14,6 +13,10 @@ const auth_editingtool = require('./auth-editingtool');
 const dbConnect = require('./db/dbConnect'); 
 const User = require('./db/userModel');
 const test_authorize = require('./test-authorize');
+const Reviewer = require('./db/Reviewer');
+const reviewer_auth = require('./reviewer-auth');
+const client_url = process.env.CLIENT_URL; 
+const server_url = process.env.SERVER_URL;
 
 
 dbConnect(); 
@@ -29,7 +32,7 @@ const stripe = require('stripe')(process.env.STRIPE_PRIVATE_KEY)
 //front end connection
 app.use(
     cors({
-        origin: ["http://localhost:3000", "https://checkout.stripe.com"],
+        origin: [client_url, "https://checkout.stripe.com"],
     })
 )
 
@@ -72,7 +75,7 @@ app.post('/create-checkout-session', async (req, res) => {
                     quantity: item.quantity
                 }
             }),
-            success_url: "http://localhost:7470/order/success?session_id={CHECKOUT_SESSION_ID}",
+            success_url:  `${server_url}/order/success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.CLIENT_URL}/`
         })
         res.json({ url: session.url })
@@ -87,11 +90,9 @@ app.get('/order/success', async (req, res) => {
         if (!session){
             throw new Error('Invalild session ID');
         }
-        console.log('session found');
         const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
             limit: 100,
         });
-        console.log('lineitems found')
         servicesRequested = []
         new_document_Ids = []
 
@@ -99,7 +100,6 @@ app.get('/order/success', async (req, res) => {
             servicesRequested = [...servicesRequested, item.description];
             new_document_Ids = [...new_document_Ids, uuidV4()]; 
         }
-
         const email = session.customer_details.email;
         User.findOne({email: email})
             .then((user) => {
@@ -145,43 +145,101 @@ app.get("/", (req, res) => {
 //Create register endpoint
 
 app.post("/register", (request, response) => {
-    console.log(request.body.password); 
-    //hash the password received from request body 10 times or 10 salt rounds
+    // Hash the password received from request body 10 times or 10 salt rounds
     bcrypt.hash(request.body.password, 10)
-        .then((hashedPassword) => {
-            console.log(request.body.fullname);
-            console.log(request.body.email); 
-            const user = new User({ 
-                fullname: request.body.fullname,
-                email: request.body.email,
-                password: hashedPassword,
-                dashboardId: request.body.dashboardId,
+      .then((hashedPassword) => { 
+        if (request.body.schoolName) {
+          // For Reviewer registration
+          const reviewer = new Reviewer({
+            fullname: request.body.fullname,
+            email: request.body.email,
+            password: hashedPassword,
+            dashboardId: request.body.dashboardId,
+            schoolName: request.body.schoolName,
+          });
+  
+          // Check if the email already exists in the User collection
+          User.findOne({ email: request.body.email })
+            .then((user) => {
+              if (user) {
+                // Email already exists in the User collection
+                return response.status(409).send({
+                  message: "Email already used for User registration",
+                });
+              } else {
+                // Email doesn't exist in the User collection, save the new Reviewer
+                reviewer.save().then((result) => {
+                  console.log("Successful");
+                  response.status(201).send({
+                    message: "Reviewer Created Successfully",
+                    result,
+                  });
+                }).catch((error) => {
+                  console.log("Error creating reviewer");
+                  response.status(500).send({
+                    message: "Error creating reviewer",
+                    error,
+                  });
+                });
+              }
+            }).catch((error) => {
+              console.log("Error checking User collection");
+              response.status(500).send({
+                message: "Error checking User collection",
+                error,
+              });
             });
-            user.save().then((result) => {
-                console.log("successfull"); 
-                response.status(201).send({
+        } else {
+          // For User registration
+          const user = new User({ 
+            fullname: request.body.fullname,
+            email: request.body.email,
+            password: hashedPassword,
+            dashboardId: request.body.dashboardId,
+          });
+  
+          // Check if the email already exists in the Reviewer collection
+          Reviewer.findOne({ email: request.body.email })
+            .then((reviewer) => {
+              if (reviewer) {
+                // Email already exists in the Reviewer collection
+                return response.status(409).send({
+                  message: "Email already used for Reviewer registration",
+                });
+              } else {
+                // Email doesn't exist in the Reviewer collection, save the new User
+                user.save().then((result) => {
+                  console.log("Successful"); 
+                  response.status(201).send({
                     message: "User Created Successfully", 
                     result, 
-                })
-            })
-            .catch((error) => {
-                console.log("error creating user"); 
-                response.status(500).send({
+                  });
+                }).catch((error) => {
+                  console.log("Error creating user");
+                  response.status(500).send({
                     message: "Error creating user", 
                     error,
-                })
-            })
-
-        })
-        .catch((e) => {
-            console.log("password was not hashed");
-            response.status(500).send({
-                message: "Password was not hashed successfully", 
-                e
+                  });
+                });
+              }
+            }).catch((error) => {
+              console.log("Error checking Reviewer collection");
+              response.status(500).send({
+                message: "Error checking Reviewer collection",
+                error,
+              });
             });
+        }
+      })
+      .catch((e) => {
+        console.log("Password was not hashed");
+        response.status(500).send({
+          message: "Password was not hashed successfully", 
+          e,
         });
-
-});
+      });
+  });
+  
 
 
 //Create Login Endpoint
@@ -191,11 +249,8 @@ app.post("/login", (request, response) => {
     User.findOne({ email: request.body.email })
          .then((user) => {
             // compare if passwords are equal
-            console.log(request.body.password);
-            console.log(user.password); 
             bcrypt.compare(request.body.password, user.password)
                 .then((passwordCheck) => {
-                    console.log(passwordCheck);
                     //if passwords don't match, send eeror
                     if (!passwordCheck) {
                         return response.status(400).send({
@@ -221,22 +276,59 @@ app.post("/login", (request, response) => {
                         email: user.email,
                         dashboardId: user.dashboardId, 
                         token,
+                        isReviewer: user.isReviewer,
                     })
-                });
+                })
                 // send error if passwords don't match
-                // .catch((error) => {
-                //     response.status(400).send({
-                //         message: "Passwords does not match", 
-                //         error,
-                //     });
-                // });
+                .catch((error) => {
+                    response.status(400).send({
+                        message: "Passwords does not match", 
+                        error,
+                    });
+                });
          })
          //error if email doesn't exist in database
          .catch((e) => {
-            response.status(404).send({
-                message: "Email not found", 
-                e,
-            });
+            Reviewer.findOne({ email: request.body.email})
+                .then((reviewer) => {
+                    if (reviewer){
+                        bcrypt.compare(request.body.password, reviewer.password)
+                            .then((passwordCheck) => {
+                                if (!passwordCheck) {
+                                    return response.status(400).send({
+                                        message: "Passwords don't match", 
+                                        error, 
+                                    })
+                                }
+                                //create JWT Token
+                                const token = jwt.sign(
+                                    {
+                                        userId: reviewer._id,
+                                        userEmail: reviewer.email,
+                                    },
+                                    process.env.ACCESS_TOKEN_SECRET,
+                                    { expiresIn: "24h" }
+                                );
+                                response.status(200).send({
+                                    message: "Login Successful as Reviewer",
+                                    email: reviewer.email,
+                                    dashboardId: reviewer.dashboardId,
+                                    token,
+                                    isReviewer: true,
+                                  });
+                            })
+                    } else{
+                        response.status(404).send({
+                            message: "Email not found",
+                        });
+                    }
+                })
+                .catch((e) => {
+                     response.status(500).send({
+                        message: "Reviewer collection error",
+                        e,
+                    });
+                })
          });
 });
 
@@ -281,7 +373,7 @@ app.post("/comments", (request, response) => {
             console.log("document not found");
             response.status(404).send({
                 message: "Could not find document", 
-                e,
+                error,
             });
         })
 })
@@ -308,23 +400,74 @@ app.get("/auth-dashboard/:dashboardId", auth, (request, response) => {
         .catch((error) => {
             console.log('Error finding user:', error); 
         })
-    
-    // response.header('Access-Control-Allow-Origin', 'http://localhost:3000, https://checkout.stripe.com'); // Replace with your allowed origin
-    // response.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-    // response.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 });
 
+app.get("/auth-reviewer-dashboard/:dashboardId", reviewer_auth, async (request, response) => {
+    let availableNotMatchedDocuments = [];
+    try {
+        availableNotMatchedDocuments = await Document.find({
+            userHasSubmitted: true,
+            essayMatched: false, 
+        }).select("_id dueBy"); 
+    } catch (error) {
+        console.error('Error fetching available documents:', error);
+        res.status(500).json({ error: 'Something went wrong' });
+    }
+
+    Reviewer.findById(request.reviewer.userId)
+        .then((reviewer) => {
+            response.json({
+                fullname: reviewer.fullname,
+                documentIds: reviewer.documentIds,
+                schoolName: reviewer.schoolName, 
+                availableNotMatchedDocuments: availableNotMatchedDocuments, 
+            })
+        })
+        .catch((error) => {
+            console.log('Error find reviewer:', error); 
+        })
+});
+
+app.post("/update-reviewer/:dashboardId", async (request, response) => {
+    console.log(request.params.dashboardId);
+    await Reviewer.findOne({ dashboardId: request.params.dashboardId})
+        .then((reviewer) => {
+            reviewer.documentIds = request.body.reviewerEssays; 
+            console.log(request.body.reviewerEssays);
+            reviewer.save().then((result) => {
+                response.status(201).send({
+                    message: "Reviewer Updated Successfully",
+                    result,
+                })
+            }).catch((error) => {
+                console.log("Error creating reviewer");
+                  response.status(500).send({
+                    message: "Error creating reviewer",
+                    error,
+                  });
+            })
+        })
+        .catch ((error) => {
+            console.log("reviewer not ofund!")
+            response.status(404).send({
+                message: "Could not find document", 
+                error,
+            });
+        })
+})
+
 app.get("/auth-editingtool/:documentId", auth_editingtool, (request, response) => {
-    console.log(request.id); 
+    console.log("here are variables!")
+    console.log(request.isReviewer);   
+    console.log(request.userHasSubmitted);
+    console.log(request.essaysReviewed);
     response.json({
         isReviewer: request.isReviewer,
         userHasSubmitted: request.userHasSubmitted,
         essaysReviewed: request.essaysReviewed,
         message: "You are authorized to access this document"
     }); 
-    // response.header('Access-Control-Allow-Origin', 'http://localhost:3000, https://checkout.stripe.com'); // Replace with your allowed origin
-    // response.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-    // response.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
 });
 
 app.post("/editingtool/:documentId", async (request, response) => {
@@ -336,8 +479,14 @@ app.post("/editingtool/:documentId", async (request, response) => {
             if (request.body.essaysReviewed){
                 document.essaysReviewed = request.body.essaysReviewed;
             }
-            if (request.body._id){
-                document.reviewerId = request.body._id; 
+            if (request.body.essayMatched){
+                document.essayMatched = request.body.essayMatched; 
+            }
+            if (request.body.dashboardId){
+                document.whichReviewerMatched = request.body.dashboardId; 
+            }
+            if (request.body.dueBy){
+                document.dueBy = request.body.dueBy;
             }
             document.save().then((result) => {
                 console.log("updated user has submitted / essays reviewed state"); 

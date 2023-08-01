@@ -11,12 +11,16 @@ const ReviewerSchema = new mongoose.Schema({
         required: [true, "Please provide your name"],
         unique: [true, "Email Exist"],
     }, 
-
     password: {
         type: String, 
         required: [true, "Please provide a password"],
         unique: false,
     }, 
+    schoolName: {
+        type: String,
+        required: [true, "Please provide school name"],  
+        unique: false, 
+    },
     dashboardId: {
         type: String,
         required: false,
@@ -25,6 +29,7 @@ const ReviewerSchema = new mongoose.Schema({
     documentIds: {
         type: Array,
         required: false,
+        default: [], 
         unique: false, 
     },
 }); 
