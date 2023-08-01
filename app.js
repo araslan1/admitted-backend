@@ -32,7 +32,7 @@ const stripe = require('stripe')(process.env.STRIPE_PRIVATE_KEY)
 //front end connection
 app.use(
     cors({
-        origin: [client_url, "https://checkout.stripe.com"],
+        origin: [CLIENT_URL, "https://checkout.stripe.com"],
     })
 )
 
