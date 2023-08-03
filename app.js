@@ -43,15 +43,53 @@ app.use((req, res, next) => {
 
 // payment setup
 const storeItems = new Map([
-    [1, { priceInCents: 5000, name: "College 1"}],
-    [2, { priceInCents: 5000, name: "College 2"}],
-    [3, { priceInCents: 5000, name: "College 3"}],
-    [4, { priceInCents: 5000, name: "College 4"}],
-    [5, { priceInCents: 5000, name: "College 5"}],
-    [6, { priceInCents: 5000, name: "College 6"}],
-    [7, {priceInCents: 2500, name: "Resume Review"}], 
-    [8, {priceInCents: 2500, name: "Activities/Honors Review"}],
-    [9, {priceInCents: 5000, name: "Practice Interview"}]
+    [1, { priceInCents: 5500, name: "Stanford - Essentials"}],
+    [2, { priceInCents: 5000, name: "Stanford - Premium"}],
+    [3, { priceInCents: 4500, name: "Stanford - Premium+"}],
+
+    [4, { priceInCents: 5500, name: "USC - Essentials"}],
+    [5, { priceInCents: 5000, name: "USC - Premium"}],
+    [6, { priceInCents: 4500, name: "USC - Premium+"}],
+
+    [7, { priceInCents: 5500, name: "Harvard - Essentials"}],
+    [8, { priceInCents: 5000, name: "Harvard - Premium"}],
+    [9, { priceInCents: 4500, name: "Harvard - Premium+"}],
+
+    [10, { priceInCents: 5500, name: "Yale - Essentials"}],
+    [11, { priceInCents: 5000, name: "Yale - Premium"}],
+    [12, { priceInCents: 4500, name: "Yale - Premium+"}],
+
+    [13, { priceInCents: 5500, name: "Columbia - Essentials"}],
+    [14, { priceInCents: 5000, name: "Columbia - Premium"}],
+    [15, { priceInCents: 4500, name: "Columbia - Premium+"}],
+
+    [16, { priceInCents: 5500, name: "Princeton - Essentials"}],
+    [17, { priceInCents: 5000, name: "Princeton - Premium"}],
+    [18, { priceInCents: 4500, name: "Princeton - Premium+"}],
+
+    [19, { priceInCents: 5500, name: "Cornell - Essentials"}],
+    [20, { priceInCents: 5000, name: "Cornell - Premium"}],
+    [21, { priceInCents: 4500, name: "Cornell - Premium+"}],
+
+    [22, { priceInCents: 5500, name: "Dartmouth - Essentials"}],
+    [23, { priceInCents: 5000, name: "Dartmouth - Premium"}],
+    [24, { priceInCents: 4500, name: "Dartmouth - Premium+"}],
+
+    [25, { priceInCents: 5500, name: "Brown - Essentials"}],
+    [26, { priceInCents: 5000, name: "Brown - Premium"}],
+    [27, { priceInCents: 4500, name: "Brown - Premium+"}],
+
+    [28, { priceInCents: 5500, name: "UPenn - Essentials"}],
+    [29, { priceInCents: 5000, name: "UPenn - Premium"}],
+    [30, { priceInCents: 4500, name: "UPenn - Premium+"}],
+
+    [31, { priceInCents: 5500, name: "Tulane - Essentials"}],
+    [32, { priceInCents: 5000, name: "Tulane - 312"}],
+    [33, { priceInCents: 4500, name: "Tulane - Premium+"}],
+
+    [34, {priceInCents: 2500, name: "Resume Review"}], 
+    [35, {priceInCents: 2500, name: "Activities/Honors Review"}],
+    [36, {priceInCents: 5000, name: "Practice Interiew"}]
 ])
 
 // app.options('https://stripe.com/cookie-settings/enforcement-mode', cors());

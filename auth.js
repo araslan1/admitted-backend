@@ -7,6 +7,7 @@ require('dotenv').config()
 //export an asynchronous function that trys to check if a user is logged in
 module.exports = async (request, response, next) => {
     try {
+        let dashboardId; 
         //get the toke
         const token = await request.headers.authorization.split(" ")[1]; 
 
@@ -23,14 +24,15 @@ module.exports = async (request, response, next) => {
                                 throw new Error("Invalid Dashboard Id")
                             }
                         }else{
-                            request.dashboardId = user.dashboardId;
+                            dashboardId = user.dashboardId;
                         }
                 })
                 .catch((error) => {
-                    
+                    throw new Error("user could not be found"); 
                 })
                 
             //check if this is the user's correct dashboard
+            request.dashboardId = dashboardId
             request.user = user; 
                     //pass down functionality to next endpoint
             next(); 
