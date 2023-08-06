@@ -181,104 +181,49 @@ app.get("/", (req, res) => {
 
 
 //Create register endpoint
-
-app.post("/register", (request, response) => {
-    // Hash the password received from request body 10 times or 10 salt rounds
-    bcrypt.hash(request.body.password, 10)
-      .then((hashedPassword) => { 
-        if (request.body.schoolName) {
-          // For Reviewer registration
-          const reviewer = new Reviewer({
-            fullname: request.body.fullname,
-            email: request.body.email,
-            password: hashedPassword,
-            dashboardId: request.body.dashboardId,
-            schoolName: request.body.schoolName,
-          });
+app.post("/register", async (request, response) => {
+    try {
+      const hashedPassword = await bcrypt.hash(request.body.password, 10);
   
-          // Check if the email already exists in the User collection
-          User.findOne({ email: request.body.email })
-            .then((user) => {
-              if (user) {
-                // Email already exists in the User collection
-                return response.status(409).send({
-                  message: "Email already used for User registration",
-                });
-              } else {
-                // Email doesn't exist in the User collection, save the new Reviewer
-                reviewer.save().then((result) => {
-                  console.log("Successful");
-                  response.status(201).send({
-                    message: "Reviewer Created Successfully",
-                    result,
-                  });
-                }).catch((error) => {
-                  console.log("Error creating reviewer");
-                  response.status(500).send({
-                    message: "Error creating reviewer",
-                    error,
-                  });
-                });
-              }
-            }).catch((error) => {
-              console.log("Error checking User collection");
-              response.status(500).send({
-                message: "Error checking User collection",
-                error,
-              });
-            });
-        } else {
-          // For User registration
-          const user = new User({ 
-            fullname: request.body.fullname,
-            email: request.body.email,
-            password: hashedPassword,
-            dashboardId: request.body.dashboardId,
-          });
+      const existingUser = await User.findOne({ email: request.body.email });
+      const existingReviewer = await Reviewer.findOne({ email: request.body.email });
   
-          // Check if the email already exists in the Reviewer collection
-          Reviewer.findOne({ email: request.body.email })
-            .then((reviewer) => {
-              if (reviewer) {
-                // Email already exists in the Reviewer collection
-                return response.status(409).send({
-                  message: "Email already used for Reviewer registration",
-                });
-              } else {
-                // Email doesn't exist in the Reviewer collection, save the new User
-                user.save().then((result) => {
-                  console.log("Successful"); 
-                  response.status(201).send({
-                    message: "User Created Successfully", 
-                    result, 
-                  });
-                }).catch((error) => {
-                  console.log("Error creating user");
-                  response.status(500).send({
-                    message: "Error creating user", 
-                    error,
-                  });
-                });
-              }
-            }).catch((error) => {
-              console.log("Error checking Reviewer collection");
-              response.status(500).send({
-                message: "Error checking Reviewer collection",
-                error,
-              });
-            });
-        }
-      })
-      .catch((e) => {
-        console.log("Password was not hashed");
-        response.status(500).send({
-          message: "Password was not hashed successfully", 
-          e,
+      if (existingUser) {
+        return response.status(409).send({ message: "Email already used for User registration" });
+      }
+  
+      if (existingReviewer) {
+        return response.status(409).send({ message: "Email already used for Reviewer registration" });
+      }
+  
+      if (request.body.schoolName) {
+        const reviewer = new Reviewer({
+          fullname: request.body.fullname,
+          email: request.body.email,
+          password: hashedPassword,
+          dashboardId: request.body.dashboardId,
+          schoolName: request.body.schoolName,
         });
-      });
+  
+        const result = await reviewer.save();
+        response.status(201).send({ message: "Registration Successful", result });
+      } else {
+        const user = new User({
+          fullname: request.body.fullname,
+          email: request.body.email,
+          password: hashedPassword,
+          dashboardId: request.body.dashboardId,
+        });
+  
+        const result = await user.save();
+        response.status(201).send({ message: "Registration Successful", result });
+      }
+    } catch (error) {
+      console.error("Error during registration:", error);
+      response.status(500).send({ message: "An error occurred during registration", error });
+    }
   });
   
-
 
 //Create Login Endpoint
 
@@ -604,7 +549,7 @@ app.post('/send-email', async (req, res) => {
 
     try {
         const info  = await transporter.sendMail({
-            from: 'alastairdeng@gmail.com',
+            from: process.env.EMAIL_USER,
             to: emailData.recipient,
             subject: emailData.subject,
             html: htmlTemplate,
@@ -622,6 +567,8 @@ app.post('/send-email', async (req, res) => {
         res.sendStatus(500);
     }
 })
+
+  
 
 
 module.exports = app; 
