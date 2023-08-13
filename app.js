@@ -571,8 +571,8 @@ app.post('/send-email', async (req, res) => {
             subject: emailData.subject,
             html: htmlTemplate,
             attachments: [{
-                filename: './logo-white.jpeg',
-                path: './logo-white.jpeg',
+                filename: './admittedLogo.png',
+                path: './admittedLogo.png',
                 cid: 'uniqueEmbed@admitted.com'
             }]
         })
