@@ -4,13 +4,13 @@ const dotenv = require('dotenv');
 const { v4: uuidV4 } = require('uuid'); 
 const User = require('../db/userModel');
 const jwt = require("jsonwebtoken"); 
-const fetch = require('node-fetch');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 dotenv.config();
 const { OAuth2Client } = require('google-auth-library');
 
 
 async function getUserData(access_token) {
-
+    
     try {
         const response = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${access_token}`);
         if (!response.ok) {
