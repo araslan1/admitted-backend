@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const { v4: uuidV4 } = require('uuid'); 
 const User = require('../db/userModel');
 const jwt = require("jsonwebtoken"); 
+const fetch = require('node-fetch');
 dotenv.config();
 const { OAuth2Client } = require('google-auth-library');
 
