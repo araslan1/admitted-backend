@@ -17,6 +17,12 @@ const Reviewer = require('./db/Reviewer');
 const reviewer_auth = require('./reviewer-auth');
 const client_url = process.env.CLIENT_URL; 
 const server_url = process.env.SERVER_URL;
+const {OAuth2Client} = require("google-auth-library"); 
+
+var authRouter = require('./routes/oauth'); 
+var requestRouter = require('./routes/request'); 
+
+// Generate a unique dashboardId using uuidV4()
 
 
 dbConnect(); 
@@ -35,11 +41,15 @@ app.use(
         origin: [client_url, "https://checkout.stripe.com"],
     })
 )
+app.use('/oauth', authRouter); 
+app.use('/request', requestRouter); 
 
 app.use((req, res, next) => {
     res.setHeader('Content-Security-Policy', "default-src 'self' https://checkout.stripe.com'");
     next();
   });
+
+
 
 // payment setup
 const storeItems = new Map([
@@ -182,56 +192,63 @@ app.get("/", (req, res) => {
 
 //Create register endpoint
 app.post("/register", async (request, response) => {
-    try {
-      const hashedPassword = await bcrypt.hash(request.body.password, 10);
-  
-      const existingUser = await User.findOne({ email: request.body.email });
-      const existingReviewer = await Reviewer.findOne({ email: request.body.email });
-  
-      if (existingUser) {
-        return response.status(409).send({ message: "Email already used for User registration" });
-      }
-  
-      if (existingReviewer) {
-        return response.status(409).send({ message: "Email already used for Reviewer registration" });
-      }
-  
-      if (request.body.schoolName) {
-        const reviewer = new Reviewer({
-          fullname: request.body.fullname,
-          email: request.body.email,
-          password: hashedPassword,
-          dashboardId: request.body.dashboardId,
-          schoolName: request.body.schoolName,
-        });
-  
-        const result = await reviewer.save();
-        response.status(201).send({ message: "Registration Successful", result });
-      } else {
-        const user = new User({
-          fullname: request.body.fullname,
-          email: request.body.email,
-          password: hashedPassword,
-          dashboardId: request.body.dashboardId,
-        });
-  
-        const result = await user.save();
-        response.status(201).send({ message: "Registration Successful", result });
-      }
-    } catch (error) {
-      console.error("Error during registration:", error);
-      response.status(500).send({ message: "An error occurred during registration", error });
+        try {
+            const hashedPassword = await bcrypt.hash(request.body.password, 10);
+        
+            const existingUser = await User.findOne({ email: request.body.email });
+            const existingReviewer = await Reviewer.findOne({ email: request.body.email });
+        
+            if (existingUser) {
+              return response.status(409).send({ message: "Email already used for User registration" });
+            }
+        
+            if (existingReviewer) {
+              return response.status(409).send({ message: "Email already used for Reviewer registration" });
+            }
+        
+            if (request.body.schoolName) {
+              const reviewer = new Reviewer({
+                fullname: request.body.fullname,
+                email: request.body.email,
+                password: hashedPassword,
+                dashboardId: request.body.dashboardId,
+                schoolName: request.body.schoolName,
+              });
+        
+              const result = await reviewer.save();
+              response.status(201).send({ message: "Registration Successful", result });
+            } else {
+              const user = new User({
+                fullname: request.body.fullname,
+                email: request.body.email,
+                password: hashedPassword,
+                dashboardId: request.body.dashboardId,
+              });
+        
+              const result = await user.save();
+              response.status(201).send({ message: "Registration Successful", result });
+            }
+          } catch (error) {
+            console.error("Error during registration:", error);
+            response.status(500).send({ message: "An error occurred during registration", error });
+          }
     }
-  });
+  );
   
 
 //Create Login Endpoint
 
 app.post("/login", (request, response) => {
-    //check if email exists in system
+    const isGoogleAuth = request.query.isGoogleAuth === 'true';
+
     User.findOne({ email: request.body.email })
          .then((user) => {
             // compare if passwords are equal
+            if (user.isGoogleAuth === true){
+                return response.status(400).send({
+                    message: "Please sign in with the google button", 
+                })
+            }
             bcrypt.compare(request.body.password, user.password)
                 .then((passwordCheck) => {
                     //if passwords don't match, send eeror
@@ -568,6 +585,10 @@ app.post('/send-email', async (req, res) => {
     }
 })
 
+
+app.post("/OAuth2", async (req, res) => {
+
+})
   
 
 

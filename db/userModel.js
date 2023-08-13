@@ -13,10 +13,15 @@ const UserSchema = new mongoose.Schema({
     }, 
 
     password: {
-        type: String, 
-        required: [true, "Please provide a password"],
-        unique: false,
-    }, 
+        type: String,
+        validate: {
+            validator: function (value) {
+                // Validate the password field only if isGoogleAuth is false
+                return !this.isGoogleAuth || (this.isGoogleAuth && value);
+            },
+            message: "Please provide a password"
+        }
+    },
     dashboardId: {
         type: String,
         required: false,
@@ -35,6 +40,11 @@ const UserSchema = new mongoose.Schema({
     isReviewer: {
         type: Boolean, 
         required: false, 
+        default: false, 
+    },
+    isGoogleAuth: {
+        type: Boolean,
+        required: true, 
         default: false, 
     }
 }); 
