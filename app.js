@@ -18,6 +18,12 @@ const reviewer_auth = require('./reviewer-auth');
 const client_url = process.env.CLIENT_URL; 
 const server_url = process.env.SERVER_URL;
 const {OAuth2Client} = require("google-auth-library"); 
+const fs = require('fs'); // Make sure to require the 'fs' module if not already done
+
+// Read the image file
+const image = fs.readFileSync('./admittedLogo.png');
+
+
 
 var authRouter = require('./routes/oauth'); 
 var requestRouter = require('./routes/request'); 
@@ -571,8 +577,8 @@ app.post('/send-email', async (req, res) => {
             subject: emailData.subject,
             html: htmlTemplate,
             attachments: [{
-                filename: './admittedLogo.png',
-                path: './admittedLogo.png',
+                filename: 'admittedLogo.png',
+                content: image, 
                 cid: 'uniqueEmbed@admitted.com'
             }]
         })
@@ -582,6 +588,52 @@ app.post('/send-email', async (req, res) => {
     } catch (error) {
         console.error('Error sending email: ', error)
         res.sendStatus(500);
+    }
+})
+
+app.post('/resetpassword', async (req, res) => {
+    console.log("entered reset password route"); 
+    let newPassword;
+    let emailToUpdate;  
+    if (req.body){ 
+        newPassword = req.body.newPassword; 
+        emailToUpdate = req.body.emailToUpdate; 
+    }
+    if (newPassword && emailToUpdate){
+        try {
+            console.log("found new Password", newPassword, "and email to update", emailToUpdate); 
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            const existingUser = await User.findOne({email: emailToUpdate}); 
+            const existingReviewer = await Reviewer.findOne({email: emailToUpdate});
+
+            if (existingUser){
+                if (existingUser.isGoogleAuth){
+                    console.log('You cannot update the password of an account signed up with Google from here');
+                    return res.status(500).json({ message: 'You cannot update the password of an account signed up with Google from here' });
+                }
+                existingUser.password = hashedPassword;
+                // Save the updated user data
+                await existingUser.save();
+                return res.status(200).json({ message: 'Password updated successfully for user' });
+            }
+            
+            if (existingReviewer){
+                existingReviewer.password = hashedPassword;
+                // Save the updated reviewer data
+                await existingReviewer.save();
+                return res.status(200).json({ message: 'Password updated successfully for reviewer' });
+            }
+            console.log("user or reviewer not found!")
+            return res.status(404).json({ message: 'Email address not found' });
+
+        }catch (err){
+            console.error(err);
+            return res.status(500).json({ message: 'An error occurred while resetting the password' });
+        }
+        
+    }else{
+        console.log('missing data'); 
+        return res.status(400).json({ message: 'Missing data in request' });
     }
 })
 
