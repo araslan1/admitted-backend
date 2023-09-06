@@ -184,6 +184,42 @@ app.get('/order/success', async (req, res) => {
     }
 })
 
+app.post('/order/success/freetrial', async (req, res) => {
+    try {
+        const freeDocument = uuidV4(); // Generate a UUID for freeDocument
+        const chosenCollege = req.body.collegeChoice;
+
+        console.log("your college choice is " + chosenCollege);
+
+        // Use async/await for better readability and error handling
+        const user = await User.findOne({ email: req.body.email });
+
+        if (user) {
+            if (user.servicesRequested) {
+                user.servicesRequested = [chosenCollege, ...user.servicesRequested];
+            } else {
+                user.servicesRequested = [chosenCOllege];
+            }
+
+            if (user.documentIds) {
+                user.documentIds = [freeDocument, ...user.documentIds];
+            } else {
+                user.documentIds = [freeDocument];
+            }
+
+            await user.save();
+            console.log("user services updated!");
+            res.status(200).json({ dashboardId: user.dashboardId });
+        } else {
+            console.log("User not found.");
+            res.status(404).json({ message: "User not found" });
+        }
+    } catch (error) {
+        console.error("Error processing order:", error);
+        res.status(500).json({ message: "Error processing order" });
+    }
+});
+
 app.get('/payment_incomplete', (req, res) => {
     res.send("Payment could not be completed")
 })
